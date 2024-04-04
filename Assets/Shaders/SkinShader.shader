@@ -4,6 +4,7 @@ Shader "Cel/Skin"
     {
         _BaseMap ("BaseMap", 2D) = "white" {}
         _BaseColor("Base Light Color",Color) = (1,1,1,1)
+        _SSSColorLUT("SSS Color LUT", 2D) = "black" {}
         _BaseShadowColor("Base Shadow Color",Color) = (1,1,1,1)
         // _SpecularColor("Specular Color", Color) = (1,1,1,1)
         _OutlineWidth("OutlineWidth", Range(0, 10)) = 0.4
@@ -31,6 +32,8 @@ Shader "Cel/Skin"
             CBUFFER_END
             TEXTURE2D(_BaseMap);                 
             SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_SSSColorLUT);
+            SAMPLER(sampler_SSSColorLUT);
             struct Attributes{
                 float4 positionOS : POSITION;
                 float4 normalOS : NORMAL;
@@ -68,10 +71,14 @@ Shader "Cel/Skin"
                 // Diffuse Lighting using Lambert's
                 Light light = GetMainLight();
                 float diffuse = dot(input.normalWS, light.direction);
+                
+                
                 diffuse = diffuse*0.5 +0.5;
                 diffuse = saturate(diffuse);
+                float2 SSSuv = float2(diffuse,0);
+                float3 SSSColor = SAMPLE_TEXTURE2D(_SSSColorLUT,sampler_SSSColorLUT,SSSuv).rgb;
                 float shadowRange = step(_ShadowRange, diffuse); 
-                float3 diffuseColor = light.color.rgb * shadowRange + _BaseShadowColor.rgb * (1-shadowRange);
+                float3 diffuseColor = light.color.rgb * shadowRange + _BaseShadowColor.rgb * (1-shadowRange) + SSSColor;
                 uint pixelLightCount = GetAdditionalLightsCount();
                 for (uint lightIndex = 0; lightIndex < pixelLightCount; ++lightIndex){
                     Light light = GetAdditionalLight(lightIndex, input.positionWS);
